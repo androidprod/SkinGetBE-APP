@@ -1,11 +1,30 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (e.g. v0.2.0)"
+        required: true
+        type: string
+      release_title:
+        description: "Release title"
+        required: false
+        default: ""
+        type: string
+      prerelease:
+        description: "Pre-release"
+        required: true
+        type: boolean
+        default: false
+      draft:
+        description: "Draft release"
+        required: true
+        type: boolean
+        default: false
 
 concurrency:
-  group: release-${{ github.event.release.tag_name }}
+  group: release-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 permissions:
@@ -16,8 +35,20 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check tag name
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          git check-ref-format "refs/tags/$RELEASE_TAG"
+
   build:
     name: Build ${{ matrix.name }}
+    needs: validate
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -47,8 +78,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name }}
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
@@ -92,7 +121,7 @@ jobs:
           PLATFORM: ${{ matrix.name }}
           BUNDLES: ${{ matrix.bundles }}
           BINARY: ${{ matrix.binary }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           output="release-files"
@@ -138,11 +167,10 @@ jobs:
 
   test:
     name: Test and lint
+    needs: validate
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name }}
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
@@ -168,7 +196,7 @@ jobs:
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets
 
   release:
-    name: Upload to GitHub Release
+    name: Create GitHub Release
     needs: [build, test]
     runs-on: ubuntu-latest
     permissions:
@@ -176,7 +204,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           pattern: skingetbe-*
@@ -187,9 +215,44 @@ jobs:
         run: |
           test "$(find release -maxdepth 1 -type f | wc -l)" -eq 8
           ls -lh release
-      - name: Attach files without changing the tag or title
+      - name: Create tag (or verify existing tag)
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY"
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          existing="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG^{}" | cut -f1)"
+          if [[ -z "$existing" ]]; then
+            existing="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG" | cut -f1)"
+          fi
+          if [[ -n "$existing" ]]; then
+            if [[ "$existing" != "$(git rev-parse HEAD)" ]]; then
+              echo "Tag $RELEASE_TAG already points to a different commit." >&2
+              exit 1
+            fi
+          else
+            git tag "$RELEASE_TAG"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+      - name: Generate release title
+        id: meta
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TITLE: ${{ inputs.release_title }}
+        run: |
+          title="${RELEASE_TITLE:-Release $RELEASE_TAG}"
+          title="${title//$'\n'/ }"
+          title="${title//$'\r'/ }"
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ steps.meta.outputs.title }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          files: release/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
