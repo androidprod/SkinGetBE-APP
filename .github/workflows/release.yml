@@ -1,0 +1,195 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            binary: skingetbe-gui.exe
+          - name: linux-x64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+            binary: skingetbe-gui
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            bundles: deb
+            binary: skingetbe-gui
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+            binary: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+
+      - name: Install Rust target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri application and bundles
+        shell: bash
+        env:
+          BUNDLES: ${{ matrix.bundles }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          npm run tauri:build -- --ci --target "$TARGET" --bundles "$BUNDLES"
+
+      - name: Collect release files
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          PLATFORM: ${{ matrix.name }}
+          BUNDLES: ${{ matrix.bundles }}
+          BINARY: ${{ matrix.binary }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          output="release-files"
+          root="src-tauri/target/$TARGET/release"
+          safe_tag="${RELEASE_TAG//\//-}"
+          mkdir -p "$output"
+
+          if [[ -n "$BINARY" ]]; then
+            test -f "$root/$BINARY"
+            if [[ "$PLATFORM" == windows-* ]]; then
+              cp "$root/$BINARY" "$output/SkinGetBE-$safe_tag-$PLATFORM.exe"
+            else
+              cp "$root/$BINARY" "$output/SkinGetBE-$safe_tag-$PLATFORM"
+            fi
+          fi
+
+          shopt -s nullglob
+          IFS=',' read -ra formats <<< "$BUNDLES"
+          for format in "${formats[@]}"; do
+            case "$format" in
+              nsis) directory="nsis"; extension="exe" ;;
+              deb) directory="deb"; extension="deb" ;;
+              appimage) directory="appimage"; extension="AppImage" ;;
+              dmg) directory="dmg"; extension="dmg" ;;
+              *) echo "Unknown bundle: $format" >&2; exit 1 ;;
+            esac
+            files=("$root/bundle/$directory"/*."$extension")
+            if [[ "${#files[@]}" -ne 1 ]]; then
+              echo "Expected one $format bundle, found ${#files[@]}" >&2
+              exit 1
+            fi
+            cp "${files[0]}" "$output/SkinGetBE-$safe_tag-$PLATFORM-$format.$extension"
+          done
+          ls -lh "$output"
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: skingetbe-${{ matrix.name }}
+          path: release-files/*
+          if-no-files-found: error
+          compression-level: 0
+
+  test:
+    name: Test and lint
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: cargo test --manifest-path src-tauri/skingetbe/Cargo.toml --locked
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets
+
+  release:
+    name: Upload to GitHub Release
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: skingetbe-*
+          path: release
+          merge-multiple: true
+      - name: Verify release files
+        shell: bash
+        run: |
+          test "$(find release -maxdepth 1 -type f | wc -l)" -eq 8
+          ls -lh release
+      - name: Attach files without changing the tag or title
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" release/* --repo "$GITHUB_REPOSITORY"
