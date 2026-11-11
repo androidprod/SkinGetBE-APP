@@ -207,6 +207,11 @@ jobs:
       - run: npm ci
       - name: Initialize Android project
         run: npm run tauri -- android init --ci --skip-targets-install
+      - name: Apply Android launcher icons
+        run: |
+          npm run tauri -- icon src-tauri/icons/app.png
+          cmp src-tauri/icons/android/mipmap-mdpi/ic_launcher.png src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          cmp src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png
       - name: Keep Android content clear of system bars
         run: python3 scripts/configure-android-insets.py
       - name: Configure release signing
