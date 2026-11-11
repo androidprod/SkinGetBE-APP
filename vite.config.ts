@@ -10,6 +10,7 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    allowedHosts: ['vscode.androidprod.f5.si']
   },
   resolve: {
     alias: {

@@ -29,7 +29,7 @@ Rust コアは `src-tauri/skingetbe` に同梱されています。利用やビ�
 - **Captured skins タブ:** PNG 一覧とプレイヤー名・スキン ID（JSON がある場合）・サイズ・更新日時を表示。画像のプレビュー、対応環境での Web Share による共有、デスクトップのファイル管理画面での場所表示に対応。Web Share を使えない場合、デスクトップでは **Share** から PNG を「名前を付けて保存」できます。
 - HTTP シグナリングは TCP `port`（初期値 **19132**）、LAN 検出は UDP **7551**。WebRTC は追加の UDP ソケットも使用します。
 - 保存モードは `0`（無効）、`1`（上書き）、`2`（重複時に連番）。
-- Windows・Linux・macOS 向けの配布設定があります。Android のアイコンはありますが、Android のパッケージング・通信・共有動作は**未検証**です。ファイル管理画面での場所表示と「名前を付けて保存」はデスクトップ専用です。
+- Windows・Linux・macOS と Android 向けのビルド設定があります。Android の実機での通信・共有動作は**未検証**です。ファイル管理画面での場所表示と「名前を付けて保存」はデスクトップ専用です。
 - Xbox Live セッション登録、Microsoft 認証済みサーバーとしての運用、ゲームプレイ用のサーバー機能には対応しません。マントやジオメトリは個別ファイルに保存しません。
 
 ### 処理の流れ
@@ -42,7 +42,7 @@ Minecraft Bedrock → HTTP シグナリング / LAN 検出 → NetherNet（WebRT
 
 ## インストールと使い方
 
-公開済みの場合は [GitHub Releases](https://github.com/androidprod/SkinGetBE-APP/releases) から各 OS 用ファイルをダウンロードします。Release ワークフローは Windows x64 用インストーラー・実行ファイル、Linux x64 用 `.deb`・`.AppImage`・実行ファイル、Linux arm64 用 `.deb`・実行ファイル、macOS Apple Silicon 用 `.dmg` を生成します。Linux の単体実行ファイルには WebKitGTK 等のライブラリが必要です。ダウンロードした実行ファイルや AppImage には `chmod +x` を実行してください。Windows・macOS の配布物はコード署名がないため、OS の警告が表示される場合があります。
+公開済みの場合は [GitHub Releases](https://github.com/androidprod/SkinGetBE-APP/releases) から各 OS 用ファイルをダウンロードします。Release ワークフローは Windows x64/arm64 用インストーラー・実行ファイル、Linux x64 用 `.deb`・`.AppImage`・実行ファイル、Linux arm64 用 `.deb`・実行ファイル、macOS Intel/Apple Silicon 用 `.dmg`、Android 用の署名済み universal `.apk` と `.aab` を生成します（Android パッケージには arm64、armv7、x86、x64 が含まれます）。Android には `.apk` をインストールし、`.aab` はストア配信用に使用します。Linux の単体実行ファイルには WebKitGTK 等のライブラリが必要です。ダウンロードした実行ファイルや AppImage には `chmod +x` を実行してください。Windows・macOS の配布物はコード署名がないため、OS の警告が表示される場合があります。
 
 アプリで **Server → Start server** を押し、Minecraft Bedrock の LAN 一覧、またはサーバーのアドレスと設定したシグナリングポートを指定して接続します。Login の解析に成功するとクライアントが切断され、**Captured skins** に PNG が表示されます。ゲームプレイには使えません。
 
@@ -96,6 +96,8 @@ JSONC コメントに対応しています。`version` が空、または `proto
 ## GitHub Releases
 
 GitHub リポジトリにワークフローを push した後、**Actions → Release → Run workflow** を開きます。ブランチとリリースタグ、任意のタイトル、pre-release / draft を指定してください。ワークフローは**手動実行のみ**です。テストと各 OS のビルドが成功した後にタグを作成（または確認）し、配布物付きの GitHub Release を作成します。既存タグは選択したコミットを指す場合のみ使用できます。新しい版を公開する際は `src-tauri/tauri.conf.json` と `src-tauri/Cargo.toml` のバージョンを更新し、インストーラー表記を揃えてください（タグとの自動照合は行いません）。GitHub-hosted runner 上でのワークフロー動作はまだ検証していません。
+
+Android のリリースビルドには、GitHub Actions の Secrets に `ANDROID_KEYSTORE_BASE64`（キーストアの base64 文字列）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` を設定してください。設定されていない場合、リリースジョブは失敗します。キーストアは `keytool -genkeypair -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload` などで作成し、`base64 -w 0 release.jks`（macOS では `base64 -i release.jks | tr -d '\n'`）の出力を Secret に登録します。秘密鍵・パスワードをリポジトリに追加しないでください。ローカル Android 開発には [Tauri の Android 前提ツール](https://v2.tauri.app/start/prerequisites/#android) を導入した上で `npm run tauri -- android init`、`npm run tauri -- android dev` を実行します。生成物 `src-tauri/gen/android/` は Git 管理しません。
 
 ## トラブルシューティング
 

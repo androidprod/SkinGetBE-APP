@@ -59,6 +59,11 @@ jobs:
             target: x86_64-pc-windows-msvc
             bundles: nsis
             binary: skingetbe-gui.exe
+          - name: windows-arm64
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            bundles: nsis
+            binary: skingetbe-gui.exe
           - name: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -72,6 +77,11 @@ jobs:
           - name: macos-arm64
             os: macos-latest
             target: aarch64-apple-darwin
+            bundles: dmg
+            binary: ""
+          - name: macos-x64
+            os: macos-15-intel
+            target: x86_64-apple-darwin
             bundles: dmg
             binary: ""
 
@@ -165,6 +175,84 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  android:
+    name: Build Android (arm64, armv7, x64, x86)
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK and NDK
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
+      - name: Configure NDK
+        run: echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Initialize Android project
+        run: npm run tauri -- android init --ci --skip-targets-install
+      - name: Configure release signing
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing Android signing secret: $name" >&2
+              exit 1
+            fi
+          done
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/skingetbe-release.jks"
+          test -s "$RUNNER_TEMP/skingetbe-release.jks"
+          python3 scripts/configure-android-signing.py
+      - name: Build signed APK and AAB
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/skingetbe-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: npm run tauri -- android build --ci --apk --aab
+      - name: Collect Android release files
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          safe_tag="${RELEASE_TAG//\//-}"
+          mapfile -t apks < <(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk')
+          mapfile -t aabs < <(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab')
+          test "${#apks[@]}" -eq 1
+          test "${#aabs[@]}" -eq 1
+          [[ "${apks[0]}" != *unsigned* ]]
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "${apks[0]}"
+          jarsigner -verify "${aabs[0]}"
+          cp "${apks[0]}" "release-files/SkinGetBE-$safe_tag-android-universal.apk"
+          cp "${aabs[0]}" "release-files/SkinGetBE-$safe_tag-android-universal.aab"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skingetbe-android
+          path: release-files/*
+          if-no-files-found: error
+          compression-level: 0
+
   test:
     name: Test and lint
     needs: validate
@@ -197,7 +285,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build, test]
+    needs: [build, android, test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -213,7 +301,7 @@ jobs:
       - name: Verify release files
         shell: bash
         run: |
-          test "$(find release -maxdepth 1 -type f | wc -l)" -eq 8
+          test "$(find release -maxdepth 1 -type f | wc -l)" -eq 13
           ls -lh release
       - name: Create tag (or verify existing tag)
         shell: bash

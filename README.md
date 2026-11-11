@@ -29,7 +29,7 @@ The Rust core is included at `src-tauri/skingetbe`; installing or cloning the up
 - **Captured skins tab:** List saved PNGs with player/skin metadata (when the JSON sidecar exists), file size and modification time. Preview a PNG, share it where the system supports Web Share, or reveal it in the desktop file manager. If Web Share is unavailable, **Share** opens a desktop Save As dialog to export a PNG copy.
 - HTTP signaling uses TCP `port` (default **19132**); LAN discovery uses UDP **7551**. WebRTC also allocates additional UDP sockets.
 - Save modes: `0` disabled, `1` overwrite and `2` numbered duplicates.
-- Windows, Linux and macOS desktop bundles are configured. Android icons are present, but Android packaging, networking and file sharing are **not verified**. Revealing a file in the file manager and Save As are desktop-only.
+- Windows, Linux, macOS and Android builds are configured. Android networking and sharing on a device are **not verified**. Revealing a file in the file manager and Save As are desktop-only.
 - No Xbox Live session registration, Microsoft-authenticated server mode or full playable server. Cape images and geometry are not saved as separate files.
 
 ### Data flow
@@ -42,7 +42,7 @@ Minecraft Bedrock → HTTP signaling / LAN discovery → NetherNet (WebRTC)
 
 ## Install and run
 
-Download a desktop asset from [GitHub Releases](https://github.com/androidprod/SkinGetBE-APP/releases) if available. The release workflow produces a Windows x64 installer and executable, Linux x64 `.deb`/`.AppImage` and executable, Linux arm64 `.deb` and executable, and a macOS Apple Silicon `.dmg`. Raw Linux executables need system WebKitGTK libraries; use `chmod +x` for downloaded executables/AppImages. Windows and macOS bundles are not code-signed and may show OS security warnings.
+Download an asset from [GitHub Releases](https://github.com/androidprod/SkinGetBE-APP/releases) if available. The release workflow produces Windows x64/arm64 installers and executables, Linux x64 `.deb`/`.AppImage` and executable, Linux arm64 `.deb` and executable, macOS Intel/Apple Silicon `.dmg` files, and signed universal Android `.apk` and `.aab` packages (including arm64, armv7, x86 and x64). Install the `.apk` on Android; the `.aab` is for store distribution. Raw Linux executables need system WebKitGTK libraries; use `chmod +x` for downloaded executables/AppImages. Windows and macOS bundles are not code-signed and may show OS security warnings.
 
 Open the app, choose **Server → Start server**, then connect from Minecraft Bedrock through its LAN list or with the server address and configured signaling port. On successful Login, the client disconnects and the PNG appears in **Captured skins**. This does not mean the server can be used for gameplay.
 
@@ -96,6 +96,8 @@ Unlike the upstream **CLI** (which stores files beside its executable), this **G
 ## GitHub Releases
 
 After pushing the workflow to your GitHub repository, open **Actions → Release → Run workflow**. Select the branch and enter a release tag, optional title and the prerelease/draft options. This workflow is **manual only**: it runs tests and native builds first, then creates (or verifies) the tag and attaches all assets to a GitHub Release. An existing tag must point to the selected commit. Update the version in `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml` before a new release so installer versions match the chosen tag; the workflow does not enforce a tag/version match. The workflow has not yet been verified on GitHub-hosted runners.
+
+Android release builds require four GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64` (base64-encoded keystore), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. The release job fails if any are missing. Create a keystore with `keytool -genkeypair -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`, then add the output of `base64 -w 0 release.jks` (on macOS: `base64 -i release.jks | tr -d '\n'`) as the base64 secret. Never commit signing keys or passwords. For local Android development, install the [Tauri Android prerequisites](https://v2.tauri.app/start/prerequisites/#android), then run `npm run tauri -- android init` and `npm run tauri -- android dev`. Generated `src-tauri/gen/android/` files are ignored by Git.
 
 ## Troubleshooting
 
