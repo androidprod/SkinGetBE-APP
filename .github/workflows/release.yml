@@ -207,6 +207,8 @@ jobs:
       - run: npm ci
       - name: Initialize Android project
         run: npm run tauri -- android init --ci --skip-targets-install
+      - name: Keep Android content clear of system bars
+        run: python3 scripts/configure-android-insets.py
       - name: Configure release signing
         shell: bash
         env:
