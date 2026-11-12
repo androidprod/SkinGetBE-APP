@@ -1,0 +1,129 @@
+export type Language = "ja" | "en"
+
+export const translations = {
+  ja: {
+    language: "言語",
+    ready: "準備完了",
+    configLoaded: "設定を読み込みました",
+    configSaved: "設定を保存しました。変更を反映するにはサーバーを再起動してください。",
+    stopRequested: "停止を要求しました",
+    serverStarting: "サーバーを起動しています",
+    shared: "共有しました",
+    shareCancelled: "共有をキャンセルしました",
+    savedTo: "{path} に保存しました",
+    running: "稼働中",
+    stopped: "停止中",
+    subtitle: "Minecraft Bedrock スキン取得サーバー",
+    sections: "アプリのセクション",
+    server: "サーバー",
+    settings: "設定",
+    skins: "取得したスキン",
+    serverControl: "サーバー操作",
+    serverControlDescription: "NetherNet スキン取得サーバーを起動・停止します。",
+    stopServer: "サーバーを停止",
+    startServer: "サーバーを起動",
+    serverLog: "サーバーログ",
+    serverLogDescription: "接続とスキン取得の履歴です。",
+    serverSettings: "サーバー設定",
+    serverSettingsDescription: "設定はアプリのデータフォルダー内の config.jsonc に保存されます。",
+    minecraftVersion: "Minecraft のバージョン",
+    protocol: "プロトコル",
+    signalingPort: "HTTP シグナリングポート",
+    lanDiscovery: "LAN 検出にはポート 7551 を使用します。",
+    bindAddress: "待ち受けアドレス",
+    saveMode: "保存モード (0～2)",
+    saveModeDescription: "0: 無効 · 1: 上書き · 2: 連番で保存",
+    saveConfig: "設定を保存",
+    reload: "再読み込み",
+    savedIn: "保存先: {path}",
+    skinsDescription: "取得した PNG はサーバーによって保存されます。",
+    refreshList: "一覧を更新",
+    player: "プレイヤー",
+    skinId: "スキン ID",
+    file: "ファイル",
+    captured: "取得日時",
+    size: "サイズ",
+    actions: "操作",
+    view: "表示",
+    share: "共有",
+    showInFolder: "フォルダーで表示",
+    noSkins: "取得したスキンはありません",
+    noSkinsDescription: "サーバーを起動し、Minecraft から接続するとスキンを取得できます。",
+    skinPreview: "スキンのプレビュー",
+    skinDescription: "取得したスキン画像 (PNG)",
+    skinAlt: "スキン: {name}",
+    close: "閉じる",
+  },
+  en: {
+    language: "Language",
+    ready: "Ready",
+    configLoaded: "Configuration loaded",
+    configSaved: "Configuration saved. Restart the server to apply changes.",
+    stopRequested: "Stop requested",
+    serverStarting: "Server starting",
+    shared: "Shared successfully",
+    shareCancelled: "Sharing cancelled",
+    savedTo: "Saved to {path}",
+    running: "Running",
+    stopped: "Stopped",
+    subtitle: "Minecraft Bedrock skin capture server",
+    sections: "Application sections",
+    server: "Server",
+    settings: "Settings",
+    skins: "Captured skins",
+    serverControl: "Server control",
+    serverControlDescription: "Start or stop the NetherNet skin capture server.",
+    stopServer: "Stop server",
+    startServer: "Start server",
+    serverLog: "Server log",
+    serverLogDescription: "Connection and capture events from the server.",
+    serverSettings: "Server settings",
+    serverSettingsDescription: "Saved to config.jsonc in the app data directory.",
+    minecraftVersion: "Minecraft version",
+    protocol: "Protocol",
+    signalingPort: "HTTP signaling port",
+    lanDiscovery: "LAN discovery uses port 7551.",
+    bindAddress: "Bind address",
+    saveMode: "Save mode (0–2)",
+    saveModeDescription: "0: disabled · 1: overwrite · 2: numbered files",
+    saveConfig: "Save config",
+    reload: "Reload",
+    savedIn: "Saved in {path}",
+    skinsDescription: "PNG captures saved by the server.",
+    refreshList: "Refresh list",
+    player: "Player",
+    skinId: "Skin ID",
+    file: "File",
+    captured: "Captured",
+    size: "Size",
+    actions: "Actions",
+    view: "View",
+    share: "Share",
+    showInFolder: "Show in folder",
+    noSkins: "No captured skins yet",
+    noSkinsDescription: "Start the server and connect with Minecraft to capture a skin.",
+    skinPreview: "Skin preview",
+    skinDescription: "Captured skin image (PNG)",
+    skinAlt: "Skin: {name}",
+    close: "Close",
+  },
+} as const
+
+export type TranslationKey = keyof typeof translations.ja
+
+export function readLanguage(): Language {
+  try {
+    return window.localStorage.getItem("skingetbe.language") === "en" ? "en" : "ja"
+  } catch {
+    return "ja"
+  }
+}
+
+export function saveLanguage(language: Language) {
+  document.documentElement.lang = language
+  try {
+    window.localStorage.setItem("skingetbe.language", language)
+  } catch {
+    // The language still works for this session when storage is unavailable.
+  }
+}
