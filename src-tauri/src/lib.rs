@@ -11,6 +11,7 @@ use std::{
     },
 };
 use tauri::Manager;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use tauri_plugin_dialog::DialogExt;
 
 #[cfg(target_os = "android")]

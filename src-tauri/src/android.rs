@@ -35,7 +35,8 @@ struct SkinArg<'a> {
 
 fn send_skin(app: &AppHandle, command: &str, path: &Path, file_name: &str) -> Result<(), String> {
     let path = path.to_str().ok_or("invalid skin path")?;
-    app.state::<AndroidBridge>()
+    app.state::<AndroidBridge<tauri::Wry>>()
+        .inner()
         .0
         .run_mobile_plugin::<()>(command, SkinArg { path, file_name })
         .map_err(|error| error.to_string())
@@ -51,7 +52,8 @@ pub fn save_skin(app: &AppHandle, path: &Path, file_name: &str) -> Result<bool, 
     struct SaveResult {
         saved: bool,
     }
-    app.state::<AndroidBridge>()
+    app.state::<AndroidBridge<tauri::Wry>>()
+        .inner()
         .0
         .run_mobile_plugin::<SaveResult>("saveSkin", SkinArg { path, file_name })
         .map(|result| result.saved)
@@ -64,7 +66,8 @@ pub fn start_notification(
     shutdown: &ShutdownSlot,
 ) -> Result<(), String> {
     let _ = SHUTDOWN.set(Arc::clone(shutdown));
-    app.state::<AndroidBridge>()
+    app.state::<AndroidBridge<tauri::Wry>>()
+        .inner()
         .0
         .run_mobile_plugin::<()>(
             "startServerNotification",
