@@ -47,6 +47,7 @@ function statusText(status: Status, t: typeof translations.ja | typeof translati
 }
 
 export function App() {
+  const isAndroid = /Android/i.test(navigator.userAgent)
   const [language, setLanguage] = useState<Language>(readLanguage)
   const t = translations[language]
   const [config, setConfig] = useState<Config>(initialConfig)
@@ -124,7 +125,7 @@ export function App() {
         await invoke("stop_server")
         setMessage({ key: "stopRequested" })
       } else {
-        await invoke("start_server", { config })
+        await invoke("start_server", { config, language })
         setMessage({ key: "serverStarting" })
       }
     } catch (error) {
@@ -150,8 +151,8 @@ export function App() {
   const revealSkin = async (skin: SavedSkin) => {
     setSkinBusy(true)
     try {
-      await invoke("reveal_skin", { fileName: skin.file_name })
-      setSkinMessage(null)
+      const saved = await invoke<boolean>("reveal_skin", { fileName: skin.file_name })
+      setSkinMessage(isAndroid ? { key: saved ? "savedSkin" : "shareCancelled" } : null)
     } catch (error) {
       setSkinMessage({ error: String(error) })
     } finally {
@@ -162,6 +163,11 @@ export function App() {
   const shareSkin = async (skin: SavedSkin) => {
     setSkinBusy(true)
     try {
+      if (isAndroid) {
+        await invoke("share_skin", { fileName: skin.file_name })
+        setSkinMessage(null)
+        return
+      }
       const data = await invoke<string>("read_skin", { fileName: skin.file_name })
       const bytes = Uint8Array.from(atob(data), (character) => character.charCodeAt(0))
       const file = new File([bytes], skin.file_name, { type: "image/png" })
@@ -334,7 +340,7 @@ export function App() {
                                 <RiShareLine data-icon="inline-start" /> {t.share}
                               </Button>
                               <Button variant="outline" size="sm" disabled={skinBusy} onClick={() => void revealSkin(skin)}>
-                                <RiFolderOpenLine data-icon="inline-start" /> {t.showInFolder}
+                                <RiFolderOpenLine data-icon="inline-start" /> {isAndroid ? t.saveToFolder : t.showInFolder}
                               </Button>
                             </div>
                           </TableCell>

@@ -214,6 +214,8 @@ jobs:
           cmp src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png
       - name: Keep Android content clear of system bars
         run: python3 scripts/configure-android-insets.py
+      - name: Install Android sharing and server service
+        run: python3 scripts/configure-android-features.py
       - name: Configure release signing
         shell: bash
         env:

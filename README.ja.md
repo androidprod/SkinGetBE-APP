@@ -30,7 +30,7 @@ Rust コアは `src-tauri/skingetbe` に同梱されています。利用やビ�
 - 画面右上の **言語** から日本語・English を切り替えられます。初期表示は日本語で、選択は次回起動時も保持されます。サーバーログと Rust 側のエラー本文は原文のまま表示されます。
 - HTTP シグナリングは TCP `port`（初期値 **19132**）、LAN 検出は UDP **7551**。WebRTC は追加の UDP ソケットも使用します。
 - 保存モードは `0`（無効）、`1`（上書き）、`2`（重複時に連番）。
-- Windows・Linux・macOS と Android 向けのビルド設定があります。Android の実機での通信・共有動作は**未検証**です。ファイル管理画面での場所表示と「名前を付けて保存」はデスクトップ専用です。
+- Windows・Linux・macOS と Android 向けのビルド設定があります。Android の実機での通信・共有動作は**未検証**です。Android の「共有」はシステムの共有メニュー、「フォルダーへ保存」は保存先選択で PNG を書き出します。アプリ専用領域のスキンフォルダーをファイル管理アプリで直接開くことはできません。サーバー起動中は停止ボタン付きの常駐通知を表示します（通知許可を拒否した場合は通知欄に表示されない場合があります）。
 - Xbox Live セッション登録、Microsoft 認証済みサーバーとしての運用、ゲームプレイ用のサーバー機能には対応しません。マントやジオメトリは個別ファイルに保存しません。
 
 ### 処理の流れ
@@ -98,7 +98,7 @@ JSONC コメントに対応しています。`version` が空、または `proto
 
 GitHub リポジトリにワークフローを push した後、**Actions → Release → Run workflow** を開きます。ブランチとリリースタグ、任意のタイトル、pre-release / draft を指定してください。ワークフローは**手動実行のみ**です。テストと各 OS のビルドが成功した後にタグを作成（または確認）し、配布物付きの GitHub Release を作成します。既存タグは選択したコミットを指す場合のみ使用できます。新しい版を公開する際は `src-tauri/tauri.conf.json` と `src-tauri/Cargo.toml` のバージョンを更新し、インストーラー表記を揃えてください（タグとの自動照合は行いません）。GitHub-hosted runner 上でのワークフロー動作はまだ検証していません。
 
-Android のリリースビルドには、GitHub Actions の Secrets に `ANDROID_KEYSTORE_BASE64`（キーストアの base64 文字列）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` を設定してください。設定されていない場合、リリースジョブは失敗します。キーストアは `keytool -genkeypair -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload` などで作成し、`base64 -w 0 release.jks`（macOS では `base64 -i release.jks | tr -d '\n'`）の出力を Secret に登録します。秘密鍵・パスワードをリポジトリに追加しないでください。ローカル Android 開発には [Tauri の Android 前提ツール](https://v2.tauri.app/start/prerequisites/) を導入した上で `npm run tauri -- android init`、`npm run tauri -- icon src-tauri/icons/android-icon.json`、`python3 scripts/configure-android-insets.py`、`npm run tauri -- android dev` の順に実行します。Android プロジェクトを再生成した際もアイコン生成とスクリプトを再実行してください。Android のランチャーアイコンは `src-tauri/icons/android/` ではなく、生成された `src-tauri/gen/android/app/src/main/res/mipmap-*/` に配置する必要があります。CI では自動実行します。生成物 `src-tauri/gen/android/` は Git 管理しません。
+Android のリリースビルドには、GitHub Actions の Secrets に `ANDROID_KEYSTORE_BASE64`（キーストアの base64 文字列）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` を設定してください。設定されていない場合、リリースジョブは失敗します。キーストアは `keytool -genkeypair -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload` などで作成し、`base64 -w 0 release.jks`（macOS では `base64 -i release.jks | tr -d '\n'`）の出力を Secret に登録します。秘密鍵・パスワードをリポジトリに追加しないでください。ローカル Android 開発には [Tauri の Android 前提ツール](https://v2.tauri.app/start/prerequisites/) を導入した上で `npm run tauri -- android init`、`npm run tauri -- icon src-tauri/icons/android-icon.json`、`python3 scripts/configure-android-insets.py`、`python3 scripts/configure-android-features.py`、`npm run tauri -- android dev` の順に実行します。Android プロジェクトを再生成した際もアイコン生成と両スクリプトを再実行してください。Android のランチャーアイコンは `src-tauri/icons/android/` ではなく、生成された `src-tauri/gen/android/app/src/main/res/mipmap-*/` に配置する必要があります。CI では自動実行します。生成物 `src-tauri/gen/android/` は Git 管理しません。
 
 ## トラブルシューティング
 

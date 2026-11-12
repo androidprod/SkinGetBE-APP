@@ -13,6 +13,8 @@ use std::{
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
+#[cfg(target_os = "android")]
+mod android;
 mod nethernet;
 
 struct AppState {
@@ -192,17 +194,36 @@ fn read_skin(file_name: String, app: tauri::AppHandle) -> Result<String, String>
 }
 
 #[tauri::command]
-fn reveal_skin(file_name: String, app: tauri::AppHandle) -> Result<(), String> {
+fn reveal_skin(file_name: String, app: tauri::AppHandle) -> Result<bool, String> {
     let directory = data_dir(&app)
         .map_err(|error| error.to_string())?
         .join("skins");
     let path = skin_path(&directory, &file_name).map_err(|error| error.to_string())?;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    return tauri_plugin_opener::reveal_item_in_dir(path).map_err(|error| error.to_string());
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    return tauri_plugin_opener::reveal_item_in_dir(path)
+        .map(|_| true)
+        .map_err(|error| error.to_string());
+    #[cfg(target_os = "android")]
+    return android::save_skin(&app, &path, &file_name);
+    #[cfg(target_os = "ios")]
     {
         let _ = path;
         Err("opening a file in the file manager is not supported on mobile".into())
+    }
+}
+
+#[tauri::command]
+fn share_skin(file_name: String, app: tauri::AppHandle) -> Result<(), String> {
+    let directory = data_dir(&app)
+        .map_err(|error| error.to_string())?
+        .join("skins");
+    let path = skin_path(&directory, &file_name).map_err(|error| error.to_string())?;
+    #[cfg(target_os = "android")]
+    return android::share_skin(&app, &path, &file_name);
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (path, file_name);
+        Err("native sharing is only available on Android".into())
     }
 }
 
@@ -266,6 +287,7 @@ fn server_state(state: tauri::State<'_, AppState>) -> ServerState {
 #[tauri::command]
 fn start_server(
     config: Config,
+    language: Option<String>,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -281,6 +303,18 @@ fn start_server(
     let shutdown = Arc::new(AtomicBool::new(false));
     *slot = Some(shutdown.clone());
     drop(slot);
+
+    #[cfg(target_os = "android")]
+    if let Err(error) =
+        android::start_notification(&app, language.as_deref() == Some("en"), &state.shutdown)
+    {
+        if let Ok(mut slot) = state.shutdown.lock() {
+            slot.take();
+        }
+        return Err(error);
+    }
+    #[cfg(not(target_os = "android"))]
+    let _ = language;
 
     let logs = Arc::clone(&state.logs);
     let shutdown_slot = Arc::clone(&state.shutdown);
@@ -347,7 +381,13 @@ pub(crate) fn append_log(logs: &Mutex<Vec<String>>, line: String) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default();
+    #[cfg(target_os = "android")]
+    {
+        builder = builder.plugin(android::init());
+    }
+    builder
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             shutdown: Arc::new(Mutex::new(None)),
@@ -362,6 +402,7 @@ pub fn run() {
             list_skins,
             read_skin,
             reveal_skin,
+            share_skin,
             export_skin
         ])
         .run(tauri::generate_context!())
