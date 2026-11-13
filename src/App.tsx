@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -40,6 +41,11 @@ const initialConfig: Config = {
   savemode: 2,
 }
 
+const languageOptions = [
+  { label: "日本語", value: "ja" },
+  { label: "English", value: "en" },
+]
+
 type Status = { key: TranslationKey; path?: string } | { error: string }
 
 function statusText(status: Status, t: typeof translations.ja | typeof translations.en): string {
@@ -50,6 +56,11 @@ export function App() {
   const isAndroid = /Android/i.test(navigator.userAgent)
   const [language, setLanguage] = useState<Language>(readLanguage)
   const t = translations[language]
+  const saveModeOptions = [
+    { label: t.saveModeDisabled, value: "0" },
+    { label: t.saveModeOverwrite, value: "1" },
+    { label: t.saveModeNumbered, value: "2" },
+  ]
   const [config, setConfig] = useState<Config>(initialConfig)
   const [logs, setLogs] = useState("")
   const [running, setRunning] = useState(false)
@@ -206,22 +217,29 @@ export function App() {
             </div>
             <p className="text-muted-foreground">{t.subtitle}</p>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <label htmlFor="language" className="text-muted-foreground">{t.language}</label>
-            <select
-              id="language"
+          <Field orientation="horizontal" className="w-auto">
+            <FieldLabel htmlFor="language">{t.language}</FieldLabel>
+            <Select
+              items={languageOptions}
               value={language}
-              onChange={(event) => {
-                const next = event.target.value as Language
+              onValueChange={(next) => {
+                if (next !== "ja" && next !== "en") return
                 setLanguage(next)
                 saveLanguage(next)
               }}
-              className="rounded-md border border-input bg-background px-2 py-1.5 text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
-              <option value="ja">日本語</option>
-              <option value="en">English</option>
-            </select>
-          </div>
+              <SelectTrigger id="language" className="min-w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {languageOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
         </header>
 
         <Tabs defaultValue="server" className="gap-5">
@@ -287,7 +305,20 @@ export function App() {
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="save-mode">{t.saveMode}</FieldLabel>
-                    <Input id="save-mode" type="number" min={0} max={2} value={config.savemode} onChange={(event) => update("savemode", Number(event.target.value))} />
+                    <Select items={saveModeOptions} value={String(config.savemode)} onValueChange={(value) => {
+                      if (value !== null) update("savemode", Number(value))
+                    }}>
+                      <SelectTrigger id="save-mode" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {saveModeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                     <FieldDescription>{t.saveModeDescription}</FieldDescription>
                   </Field>
                 </FieldGroup>
