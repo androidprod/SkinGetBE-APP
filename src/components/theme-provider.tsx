@@ -111,6 +111,12 @@ export function ThemeProvider({
 
       root.classList.remove("light", "dark")
       root.classList.add(resolvedTheme)
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute(
+          "content",
+          getComputedStyle(document.body).backgroundColor
+        )
 
       if (restoreTransitions) {
         restoreTransitions()

@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use skingetbe::util::{Config, ConfigManager};
 use std::{
     fs,
-    path::PathBuf,
+    io::Read,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -157,7 +158,7 @@ fn list_skins(app: tauri::AppHandle) -> Result<SkinList, String> {
 }
 
 // Only single PNG file names from the app's skins directory may be accessed.
-fn skin_path(directory: &std::path::Path, file_name: &str) -> Result<PathBuf> {
+fn skin_path(directory: &Path, file_name: &str) -> Result<PathBuf> {
     use std::path::Component;
 
     let mut components = std::path::Path::new(file_name).components();
@@ -175,31 +176,37 @@ fn skin_path(directory: &std::path::Path, file_name: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-#[tauri::command]
-fn read_skin(file_name: String, app: tauri::AppHandle) -> Result<String, String> {
-    let directory = data_dir(&app)
-        .map_err(|error| error.to_string())?
-        .join("skins");
-    let path = skin_path(&directory, &file_name).map_err(|error| error.to_string())?;
-    let size = fs::metadata(&path)
-        .map_err(|error| error.to_string())?
-        .len();
-    if size > 8 * 1024 * 1024 {
-        return Err("skin image is too large to preview or share".into());
+fn app_skin_path(app: &tauri::AppHandle, file_name: &str) -> Result<PathBuf> {
+    skin_path(&data_dir(app)?.join("skins"), file_name)
+}
+
+const MAX_PREVIEW_BYTES: u64 = 8 * 1024 * 1024;
+
+fn read_png(path: &Path) -> Result<String> {
+    // Bound the actual read, not just a preceding metadata check: a file may
+    // change between the check and the read.
+    let mut bytes = Vec::new();
+    fs::File::open(path)?
+        .take(MAX_PREVIEW_BYTES + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_PREVIEW_BYTES {
+        bail!("skin image is too large to preview or share");
     }
-    let bytes = fs::read(path).map_err(|error| error.to_string())?;
     if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-        return Err("skin image is not a PNG".into());
+        bail!("skin image is not a PNG");
     }
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
 #[tauri::command]
+fn read_skin(file_name: String, app: tauri::AppHandle) -> Result<String, String> {
+    let path = app_skin_path(&app, &file_name).map_err(|error| error.to_string())?;
+    read_png(&path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn reveal_skin(file_name: String, app: tauri::AppHandle) -> Result<bool, String> {
-    let directory = data_dir(&app)
-        .map_err(|error| error.to_string())?
-        .join("skins");
-    let path = skin_path(&directory, &file_name).map_err(|error| error.to_string())?;
+    let path = app_skin_path(&app, &file_name).map_err(|error| error.to_string())?;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     return tauri_plugin_opener::reveal_item_in_dir(path)
         .map(|_| true)
@@ -215,10 +222,7 @@ fn reveal_skin(file_name: String, app: tauri::AppHandle) -> Result<bool, String>
 
 #[tauri::command]
 fn share_skin(file_name: String, app: tauri::AppHandle) -> Result<(), String> {
-    let directory = data_dir(&app)
-        .map_err(|error| error.to_string())?
-        .join("skins");
-    let path = skin_path(&directory, &file_name).map_err(|error| error.to_string())?;
+    let path = app_skin_path(&app, &file_name).map_err(|error| error.to_string())?;
     #[cfg(target_os = "android")]
     return android::share_skin(&app, &path, &file_name);
     #[cfg(not(target_os = "android"))]
@@ -232,10 +236,7 @@ fn share_skin(file_name: String, app: tauri::AppHandle) -> Result<(), String> {
 // still be sent through the user's preferred desktop application.
 #[tauri::command]
 async fn export_skin(file_name: String, app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let directory = data_dir(&app)
-        .map_err(|error| error.to_string())?
-        .join("skins");
-    let path = skin_path(&directory, &file_name).map_err(|error| error.to_string())?;
+    let path = app_skin_path(&app, &file_name).map_err(|error| error.to_string())?;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     return tauri::async_runtime::spawn_blocking(move || -> Result<Option<String>> {
         let selected = app
@@ -453,6 +454,29 @@ mod tests {
         ] {
             assert!(skin_path(&directory, name).is_err(), "{name}");
         }
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn preview_requires_png_and_limits_file_size() {
+        let directory =
+            std::env::temp_dir().join(format!("skingetbe-preview-test-{}", rand::random::<u64>()));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("skin.png");
+        let png = b"\x89PNG\r\n\x1a\nskin";
+        fs::write(&path, png).unwrap();
+        assert_eq!(
+            read_png(&path).unwrap(),
+            base64::engine::general_purpose::STANDARD.encode(png)
+        );
+        fs::write(&path, b"not a PNG").unwrap();
+        assert!(read_png(&path).is_err());
+        let file = fs::File::create(&path).unwrap();
+        file.set_len(MAX_PREVIEW_BYTES + 1).unwrap();
+        assert!(read_png(&path)
+            .unwrap_err()
+            .to_string()
+            .contains("too large"));
         fs::remove_dir_all(directory).unwrap();
     }
 }

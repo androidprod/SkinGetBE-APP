@@ -2,14 +2,17 @@ export type Language = "ja" | "en"
 
 export const translations = {
   ja: {
+    skipToContent: "本文へスキップ",
     language: "言語",
     ready: "準備完了",
     configLoaded: "設定を読み込みました",
-    configSaved: "設定を保存しました。変更を反映するにはサーバーを再起動してください。",
-    stopRequested: "停止を要求しました",
-    serverStarting: "サーバーを起動しています",
+    configSaved:
+      "設定を保存しました。変更を反映するにはサーバーを再起動してください。",
+    stopRequested: "サーバーを停止しています…",
+    serverStarting: "サーバーを起動しています…",
     shared: "共有しました",
     shareCancelled: "共有をキャンセルしました",
+    saveCancelled: "保存をキャンセルしました",
     savedTo: "{path} に保存しました",
     savedSkin: "指定したフォルダーに保存しました",
     running: "稼働中",
@@ -20,13 +23,14 @@ export const translations = {
     settings: "設定",
     skins: "取得したスキン",
     serverControl: "サーバー操作",
-    serverControlDescription: "NetherNet スキン取得サーバーを起動・停止します。",
+    serverControlDescription: "NetherNet を起動・停止します。",
     stopServer: "サーバーを停止",
     startServer: "サーバーを起動",
     serverLog: "サーバーログ",
     serverLogDescription: "接続とスキン取得の履歴です。",
     serverSettings: "サーバー設定",
-    serverSettingsDescription: "設定はアプリのデータフォルダー内の config.jsonc に保存されます。",
+    serverSettingsDescription:
+      "設定はアプリのデータフォルダー内の config.jsonc に保存されます。",
     minecraftVersion: "Minecraft のバージョン",
     protocol: "プロトコル",
     signalingPort: "HTTP シグナリングポート",
@@ -36,12 +40,23 @@ export const translations = {
     saveModeDisabled: "0: 無効",
     saveModeOverwrite: "1: 上書き",
     saveModeNumbered: "2: 連番で保存",
-    saveModeDescription: "0: 無効 · 1: 上書き · 2: 連番で保存",
     saveConfig: "設定を保存",
     reload: "再読み込み",
+    unsavedReloadTitle: "未保存の設定を破棄しますか？",
+    unsavedReloadDescription:
+      "再読み込みすると、保存していない変更は失われます。",
+    unsavedCloseTitle: "設定を保存せずに終了しますか？",
+    unsavedCloseDescription: "保存していない変更は失われます。",
+    cancel: "キャンセル",
+    discardAndReload: "破棄して再読み込み",
+    discardAndClose: "破棄して終了",
     savedIn: "保存先: {path}",
-    skinsDescription: "取得した PNG はサーバーによって保存されます。",
+    skinsDescription: "サーバーが保存した PNG を一覧表示します。",
     refreshList: "一覧を更新",
+    skinPages: "スキン一覧のページ",
+    previousPage: "前へ",
+    nextPage: "次へ",
+    pageCount: "{current} / {total} ページ",
     player: "プレイヤー",
     skinId: "スキン ID",
     file: "ファイル",
@@ -53,21 +68,24 @@ export const translations = {
     showInFolder: "フォルダーで表示",
     saveToFolder: "フォルダーへ保存",
     noSkins: "取得したスキンはありません",
-    noSkinsDescription: "サーバーを起動し、Minecraft から接続するとスキンを取得できます。",
+    noSkinsDescription:
+      "サーバーを起動し、Minecraft から接続するとスキンを取得できます。",
     skinPreview: "スキンのプレビュー",
     skinDescription: "取得したスキン画像 (PNG)",
     skinAlt: "スキン: {name}",
     close: "閉じる",
   },
   en: {
+    skipToContent: "Skip to content",
     language: "Language",
     ready: "Ready",
     configLoaded: "Configuration loaded",
     configSaved: "Configuration saved. Restart the server to apply changes.",
-    stopRequested: "Stop requested",
-    serverStarting: "Server starting",
-    shared: "Shared successfully",
+    stopRequested: "Stopping server…",
+    serverStarting: "Starting server…",
+    shared: "Shared",
     shareCancelled: "Sharing cancelled",
+    saveCancelled: "Saving cancelled",
     savedTo: "Saved to {path}",
     savedSkin: "Saved to the selected folder",
     running: "Running",
@@ -78,13 +96,14 @@ export const translations = {
     settings: "Settings",
     skins: "Captured skins",
     serverControl: "Server control",
-    serverControlDescription: "Start or stop the NetherNet skin capture server.",
+    serverControlDescription: "Start or stop NetherNet.",
     stopServer: "Stop server",
     startServer: "Start server",
     serverLog: "Server log",
     serverLogDescription: "Connection and capture events from the server.",
     serverSettings: "Server settings",
-    serverSettingsDescription: "Saved to config.jsonc in the app data directory.",
+    serverSettingsDescription:
+      "Saved to config.jsonc in the app data directory.",
     minecraftVersion: "Minecraft version",
     protocol: "Protocol",
     signalingPort: "HTTP signaling port",
@@ -94,12 +113,22 @@ export const translations = {
     saveModeDisabled: "0: Disabled",
     saveModeOverwrite: "1: Overwrite",
     saveModeNumbered: "2: Numbered files",
-    saveModeDescription: "0: disabled · 1: overwrite · 2: numbered files",
     saveConfig: "Save config",
     reload: "Reload",
+    unsavedReloadTitle: "Discard unsaved settings?",
+    unsavedReloadDescription: "Reloading will discard your unsaved changes.",
+    unsavedCloseTitle: "Close without saving settings?",
+    unsavedCloseDescription: "Your unsaved changes will be lost.",
+    cancel: "Cancel",
+    discardAndReload: "Discard and reload",
+    discardAndClose: "Discard and close",
     savedIn: "Saved in {path}",
-    skinsDescription: "PNG captures saved by the server.",
+    skinsDescription: "PNG files saved by the server appear here.",
     refreshList: "Refresh list",
+    skinPages: "Skin list pages",
+    previousPage: "Previous",
+    nextPage: "Next",
+    pageCount: "Page {current} of {total}",
     player: "Player",
     skinId: "Skin ID",
     file: "File",
@@ -111,7 +140,8 @@ export const translations = {
     showInFolder: "Show in folder",
     saveToFolder: "Save to folder",
     noSkins: "No captured skins yet",
-    noSkinsDescription: "Start the server and connect with Minecraft to capture a skin.",
+    noSkinsDescription:
+      "Start the server and connect with Minecraft to capture a skin.",
     skinPreview: "Skin preview",
     skinDescription: "Captured skin image (PNG)",
     skinAlt: "Skin: {name}",
@@ -123,14 +153,15 @@ export type TranslationKey = keyof typeof translations.ja
 
 export function readLanguage(): Language {
   try {
-    return window.localStorage.getItem("skingetbe.language") === "en" ? "en" : "ja"
+    return window.localStorage.getItem("skingetbe.language") === "en"
+      ? "en"
+      : "ja"
   } catch {
     return "ja"
   }
 }
 
 export function saveLanguage(language: Language) {
-  document.documentElement.lang = language
   try {
     window.localStorage.setItem("skingetbe.language", language)
   } catch {

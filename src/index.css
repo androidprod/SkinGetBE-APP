@@ -126,5 +126,19 @@
     }
   html {
     @apply font-sans;
+    color-scheme: light;
     }
+  html.dark {
+    color-scheme: dark;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-overlay"],
+  [data-slot="alert-dialog-content"],
+  [data-slot="select-content"] {
+    animation-duration: 0.01ms !important;
+  }
 }
